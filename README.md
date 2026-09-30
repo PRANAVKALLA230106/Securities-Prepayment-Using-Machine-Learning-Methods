@@ -82,7 +82,21 @@ With the default settings (5,000 loans per vintage) a run takes roughly 10-30 mi
 The SVMs and the neural network are the slow parts. A GPU (CUDA or Apple Silicon) is used
 automatically for the neural network if available.
 
-### 4. Commit
+### 4. Demo (no training, a few seconds)
+
+```bash
+python demo.py            # 10 held-out test loan-months, half of which prepay
+python demo.py --seed 7   # a different draw
+```
+
+`run_all.py` saves every trained model, the fitted preprocessor and a small set of **test-set** loan-months
+to `models/`. `demo.py` loads them, prints each loan-month's key features (credit score, loan rate vs market
+rate, refinance incentive, loan age, mark-to-market LTV, burnout), every model's prepay probability and
+whether it predicts a prepayment, the true outcome, and finally the full test-set comparison table.
+Probabilities are Platt-calibrated on the validation set, so models with different score scales are comparable.
+`models/` is not committed (it holds Freddie Mac rows), so run `run_all.py` once before the demo.
+
+### 5. Commit
 
 ```bash
 git add .
@@ -158,7 +172,8 @@ to the test set. PR-AUC is the headline metric because only about 1-2% of loan-m
 
 ```
 mbs-prepayment-ml/
-├── run_all.py                 # entry point
+├── run_all.py                 # entry point: build data, train, evaluate
+├── demo.py                    # live demo with the saved models (no training)
 ├── config.yaml                # all settings
 ├── requirements.txt
 ├── prepay/
@@ -173,6 +188,7 @@ mbs-prepayment-ml/
 │   └── make_synthetic_data.py # fake data in the exact Freddie Mac format (for tests)
 ├── tests/
 │   └── test_pipeline.py       # end-to-end smoke test on synthetic data
+├── models/                    # saved models + demo rows (generated; not committed)
 ├── data/                      # not committed
 │   ├── raw/                   # put sample_YYYY.zip here
 │   ├── macro/                 # FRED CSVs (auto-downloaded)

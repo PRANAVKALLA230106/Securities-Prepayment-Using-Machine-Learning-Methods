@@ -5,6 +5,11 @@ data/processed/*
 data/synthetic/
 !data/**/.gitkeep
 
+# Trained models + demo rows (contain Freddie Mac data; regenerate with run_all.py)
+models/*
+!models/.gitkeep
+models_synthetic/
+
 # Synthetic smoke-test output
 results_synthetic/
 

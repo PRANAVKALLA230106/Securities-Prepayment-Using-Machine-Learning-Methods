@@ -6,6 +6,7 @@ import json
 import time
 from pathlib import Path
 
+import joblib
 import numpy as np
 import pandas as pd
 
@@ -88,6 +89,9 @@ def _fit_eval(name, cfg, X, y, idx, seed):
     fit_s = time.time() - t
     s_va, s_te = model.score(X[va]), model.score(X[te])
     thr = ev.pick_threshold(y[va], s_va)
+    # stored on the model so demo.py can reuse them without the validation data
+    model.threshold = thr
+    model.calibrator = ev.fit_calibrator(y[va], s_va)
     m = ev.metrics(y[te], s_te, thr)
     m.update(threshold=thr, fit_seconds=round(fit_s, 1))
     return model, m, s_te
@@ -121,12 +125,16 @@ def run(cfg: dict, root: Path, data_path: Path, only: list[str] | None = None) -
     }
     print("[model] dataset:", json.dumps(summary))
 
+    model_dir = root / cfg["paths"].get("models_dir", "models")
+    save_demo_inputs(df, te, prep, num, cat, model_dir, seed)
+
     names = only or cfg["models"]
     rows, scores, fitted = [], {}, {}
     for name in names:
         print(f"[model] {PRETTY.get(name, name)} ...")
         model, m, s_te = _fit_eval(name, cfg, X, y, idx, seed)
         fitted[name], scores[name] = model, s_te
+        joblib.dump(model, model_dir / f"{name}.joblib")
         m = {"model": PRETTY.get(name, name), "key": name, **m}
         rows.append(m)
         print(
@@ -157,6 +165,24 @@ def run(cfg: dict, root: Path, data_path: Path, only: list[str] | None = None) -
 
     write_report(cfg, root, res_dir, rows, summary, leak)
     return pd.DataFrame(rows)
+
+
+def save_demo_inputs(df, te, prep, num, cat, model_dir, seed, per_class=50):
+    """Save the fitted preprocessor and a few held-out TEST loan-months for demo.py.
+
+    Up to ``per_class`` prepay and ``per_class`` no-prepay rows, so the demo can
+    show both outcomes (prepayments are only ~1-2% of rows).
+    """
+    model_dir.mkdir(parents=True, exist_ok=True)
+    joblib.dump(prep, model_dir / "preprocessor.joblib")
+    test = df.loc[te]
+    rng = np.random.default_rng(seed)
+    picks = []
+    for cls in (1, 0):
+        rows = test.index[test["y_next"] == cls].to_numpy()
+        picks.append(rng.choice(rows, size=min(per_class, len(rows)), replace=False))
+    keep = ["loan_id", "period", "vintage", "y_next"] + [c for c in num + cat if c not in ("loan_id", "period", "vintage")]
+    test.loc[np.concatenate(picks), keep].to_parquet(model_dir / "demo_sample.parquet", index=False)
 
 
 def leakage_demo(cfg, full, num, cat, rows, X, y, idx, fig_dir):

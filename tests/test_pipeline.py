@@ -61,6 +61,13 @@ def test_full_pipeline_runs(tmp_path):
     assert (out / "figures" / "leakage_demo.png").exists()
     assert len(pd.read_csv(out / "metrics.csv")) == len(cfg["models"])
 
+    # demo loads the saved models and scores held-out rows without training
+    import demo
+
+    shown = demo.run_demo(cfg, tmp_path, n=10, seed=0)
+    assert len(shown) == 10 and shown["y"].sum() == 5
+    assert all(shown[f"p_{m}"].between(0, 1).all() for m in cfg["models"])
+
     # loan-level split: no loan in two sets
     df = pd.read_parquet(data_path)
     df = df[df["y_next"].notna()].reset_index(drop=True)

@@ -45,6 +45,7 @@ def main() -> None:
             "macro_dir": f"{base}/macro",
             "processed_dir": f"{base}/processed",
             "results_dir": "results_synthetic",
+            "models_dir": "models_synthetic",
         }
         cfg["data"]["years"] = None
         cfg["svm"]["train_rows"] = min(cfg["svm"]["train_rows"], 4000)

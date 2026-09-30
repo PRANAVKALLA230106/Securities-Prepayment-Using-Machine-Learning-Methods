@@ -9,6 +9,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from sklearn.decomposition import PCA  # noqa: E402
+from sklearn.linear_model import LogisticRegression  # noqa: E402
 from sklearn.metrics import (  # noqa: E402
     average_precision_score,
     confusion_matrix,
@@ -51,6 +52,20 @@ def pick_threshold(y_val: np.ndarray, s_val: np.ndarray) -> float:
     p, r, t = precision_recall_curve(y_val, s_val)
     f1 = 2 * p[:-1] * r[:-1] / np.clip(p[:-1] + r[:-1], 1e-12, None)
     return float(t[np.nanargmax(f1)])
+
+
+def _finite(s: np.ndarray) -> np.ndarray:
+    # QDA log-odds can be +-inf; clip so the calibrator gets finite inputs
+    return np.clip(np.nan_to_num(np.asarray(s, dtype=float), nan=0.0, posinf=50.0, neginf=-50.0), -50, 50)
+
+
+def fit_calibrator(y_val: np.ndarray, s_val: np.ndarray) -> LogisticRegression:
+    """Platt scaling: maps any model's score to a prepay probability, fitted on validation."""
+    return LogisticRegression().fit(_finite(s_val)[:, None], y_val)
+
+
+def calibrated_proba(cal: LogisticRegression, s: np.ndarray) -> np.ndarray:
+    return cal.predict_proba(_finite(s)[:, None])[:, 1]
 
 
 def metrics(y: np.ndarray, s: np.ndarray, thr: float) -> dict:

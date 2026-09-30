@@ -51,7 +51,8 @@ class NeuralNet:
         rng = np.random.default_rng(self.seed)
         dev = self.device = _device(self.cfg["device"])
         print(f"      training on {dev}")
-        self.model = _Net(X.shape[1], self.cfg["hidden"]).to(dev)
+        self.n_in = X.shape[1]
+        self.model = _Net(self.n_in, self.cfg["hidden"]).to(dev)
         opt = torch.optim.SGD(self.model.parameters(), lr=self.cfg["lr"])
         sched = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=self.cfg["lr_decay"])
         loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.cfg["pos_weight"], device=dev))
@@ -82,6 +83,23 @@ class NeuralNet:
         self.model.load_state_dict(best_state)
         print(f"      kept epoch {self.best_epoch} (best val PR-AUC {best_ap:.4f})")
         return self
+
+    # Pickle the weights as CPU tensors so a model trained on a GPU loads anywhere.
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("device", None)
+        if "model" in state:
+            state["model"] = {k: v.detach().cpu() for k, v in self.model.state_dict().items()}
+        return state
+
+    def __setstate__(self, state):
+        weights = state.pop("model", None)
+        self.__dict__.update(state)
+        self.device = torch.device("cpu")
+        if weights is not None:
+            self.model = _Net(self.n_in, self.cfg["hidden"])
+            self.model.load_state_dict(weights)
+            self.model.eval()
 
     @torch.no_grad()
     def score(self, X):

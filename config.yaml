@@ -11,6 +11,7 @@ paths:
   macro_dir: data/macro        # macro CSVs are downloaded / cached here
   processed_dir: data/processed
   results_dir: results
+  models_dir: models           # saved models + held-out demo rows (used by demo.py)
 
 data:
   # Vintages (origination years) to use. null = every sample_YYYY.zip found in raw_dir.
