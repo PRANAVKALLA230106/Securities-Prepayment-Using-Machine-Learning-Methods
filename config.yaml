@@ -1,0 +1,93 @@
+# ---------------------------------------------------------------------------
+# Configuration for the MBS prepayment pipeline.
+# Every setting has a sensible default; you normally only touch the "data"
+# section (how many loans to use) and the "models" list.
+# ---------------------------------------------------------------------------
+
+seed: 42
+
+paths:
+  raw_dir: data/raw            # put Freddie Mac sample_YYYY.zip files here
+  macro_dir: data/macro        # macro CSVs are downloaded / cached here
+  processed_dir: data/processed
+  results_dir: results
+
+data:
+  # Vintages (origination years) to use. null = every sample_YYYY.zip found in raw_dir.
+  years: null
+  # Loans sampled per vintage. The Freddie Mac sample has 50,000 per year.
+  # 5,000 keeps a laptop run to minutes; set to null to use every loan.
+  loans_per_year: 5000
+  # Only fixed-rate, fully amortizing 30-year loans (as in the paper).
+  loan_term_months: 360
+
+split:
+  # "loan": 60/20/20 split by LOAN, so no loan appears in two sets (default).
+  # "time": out-of-time split - train on early months, test on the latest ones.
+  method: loan
+  train_frac: 0.6
+  val_frac: 0.2
+  # used only when method == time: fraction of reporting months for train / val
+  time_train_frac: 0.6
+  time_val_frac: 0.2
+
+macro:
+  enabled: true
+  # FRED series ids (FRED also hosts the FHFA house price index)
+  mortgage_rate: MORTGAGE30US   # Freddie Mac PMMS 30-year fixed rate (weekly -> monthly mean)
+  hpi: HPIPONM226S              # FHFA purchase-only HPI, US, monthly, seasonally adjusted
+  unemployment: UNRATE          # BLS unemployment rate, monthly
+
+models:
+  # Remove any you don't want to run. Order = order in the results table.
+  - baseline          # always predicts "no prepayment" - shows why accuracy misleads
+  - logistic_base
+  - logistic_l1
+  - logistic_l2
+  - svm_poly
+  - svm_rbf
+  - svm_sigmoid
+  - gda_linear
+  - gda_quadratic
+  - neural_net
+  - gradient_boosting # not in the paper; strong tabular benchmark
+
+logistic:
+  C: 0.1                 # inverse regularization strength for L1 / L2
+  max_train_rows: 600000 # subsample the training set above this size
+
+svm:
+  # Kernel SVMs scale ~quadratically, so (like the paper) they train on a subsample.
+  train_rows: 15000
+  poly_degree: 3
+
+gda:
+  # QDA needs a little covariance regularization because one-hot columns are
+  # near-constant within a class. The best value is picked on the validation set.
+  qda_reg_params: [0.001, 0.01, 0.1]
+
+neural_net:
+  # Paper architecture: input -> 128 -> 256 -> 1, batch norm + ReLU, sigmoid output.
+  hidden: [128, 256]
+  epochs: 30
+  batch_size: 1024
+  lr: 0.1
+  lr_decay: 0.91        # multiply learning rate by this after each epoch
+  pos_weight: 10.0      # extra weight on the rare "prepay" class (paper found 10 best)
+  device: auto          # auto | cpu | cuda | mps
+
+gradient_boosting:
+  max_iter: 300
+  learning_rate: 0.1
+
+evaluation:
+  # Decision threshold for each model is chosen on the VALIDATION set to
+  # maximize F1, then applied unchanged to the test set.
+  threshold: best_f1_on_val
+  pca_points: 3000
+
+leakage_demo:
+  # Re-runs L2 logistic regression with the paper's setup (label = prepaid in
+  # the SAME month, termination rows kept, random row split) to show how much
+  # that inflates the scores. Set false to skip.
+  enabled: true

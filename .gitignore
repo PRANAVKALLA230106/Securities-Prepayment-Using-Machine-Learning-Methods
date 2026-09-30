@@ -1,0 +1,23 @@
+# Data (Freddie Mac terms do not allow redistribution)
+data/raw/*
+data/macro/*
+data/processed/*
+data/synthetic/
+!data/**/.gitkeep
+
+# Synthetic smoke-test output
+results_synthetic/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
