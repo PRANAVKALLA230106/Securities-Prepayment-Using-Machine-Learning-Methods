@@ -102,9 +102,21 @@ def _n_columns(raw_dir: Path, year: int, kind: str) -> int:
     return first.rstrip("\r\n").count("|") + 1
 
 
+def _layout(kind: str, colmap: dict, ncol: int) -> dict:
+    """Adjust column positions to the file's actual layout.
+
+    The User Guide layout has 32 origination columns with separate seller (23)
+    and servicer (24) name columns. The sample files we downloaded have 31: a
+    single name column at 23, so every later column sits one position earlier.
+    """
+    if kind == "orig" and ncol == 31:
+        return {(i - 1 if i >= 24 else i): n for i, n in colmap.items()}
+    return colmap
+
+
 def _read(raw_dir, year, kind, colmap, chunksize=None):
     ncol = _n_columns(raw_dir, year, kind)
-    use = {i: n for i, n in colmap.items() if i < ncol}
+    use = {i: n for i, n in _layout(kind, colmap, ncol).items() if i < ncol}
     fh = _open_member(raw_dir, year, kind)
     reader = pd.read_csv(
         io.TextIOWrapper(fh, encoding="latin-1"),
