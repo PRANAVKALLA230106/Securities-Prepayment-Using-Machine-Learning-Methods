@@ -5,6 +5,10 @@ data/processed/*
 data/synthetic/
 !data/**/.gitkeep
 
+# Any zip, e.g. Freddie Mac vintage downloads or release-NN-sample-files.zip
+# (layout samples) placed outside data/raw/
+*.zip
+
 # Trained models + demo rows (contain Freddie Mac data; regenerate with run_all.py)
 models/*
 !models/.gitkeep
